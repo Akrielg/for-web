@@ -38,9 +38,9 @@ export default defineConfig({
         enabled: true,
       },
       manifest: {
-        name: "Stoat",
-        short_name: "Stoat",
-        description: "User-first open source chat platform.",
+        name: "Spiraliis",
+        short_name: "Spiraliis",
+        description: "Spiraliis — a private chat server for friends.",
         categories: ["communication", "chat", "messaging"],
         start_url: base,
         scope: pwaScope,

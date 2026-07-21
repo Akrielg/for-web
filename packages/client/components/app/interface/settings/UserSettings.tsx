@@ -228,7 +228,7 @@ const Config: SettingsConfiguration<{ server: Server }> = {
           ],
         },
         {
-          title: "Stoat",
+          title: "Spiraliis",
           entries: [
             {
               id: "bots",
