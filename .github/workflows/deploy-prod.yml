@@ -1,0 +1,63 @@
+name: deploy-prod
+
+# Deploy the Spiraliis web image to production (chat.spiraliis.com).
+# Manual only, and gated by the "production" environment (requires your approval).
+# Reaches the server over SSH using a forced-command deploy key that can ONLY run
+# /opt/stoat/deploy-web.sh (deploy | rollback) — not an arbitrary shell.
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "ghcr.io/akrielg/spiraliis-web tag to deploy"
+        default: staging
+        required: true
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production          # <-- approval gate (required reviewer = you)
+    permissions:
+      contents: read
+      packages: read                 # lets GITHUB_TOKEN pull the private image
+    steps:
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.PROD_SSH_KEY }}" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          printf '%s\n' "${{ secrets.PROD_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Deploy web image
+        env:
+          HOST: ${{ secrets.PROD_HOST }}
+          SSH_USER: ${{ secrets.PROD_USER }}
+          TAG: ${{ inputs.image_tag }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # forced command runs /opt/stoat/deploy-web.sh; args land in SSH_ORIGINAL_COMMAND
+          ssh -i ~/.ssh/deploy -o BatchMode=yes "${SSH_USER}@${HOST}" "deploy ${TAG} ${GHCR_TOKEN}"
+
+      - name: Health check (from outside)
+        id: health
+        run: |
+          sleep 10
+          home=$(curl -s -o /dev/null -w '%{http_code}' https://chat.spiraliis.com/)
+          api=$(curl -s -o /dev/null -w '%{http_code}' https://chat.spiraliis.com/api/)
+          title=$(curl -s https://chat.spiraliis.com/ | grep -oiE '<title>[^<]*</title>' || true)
+          echo "home=$home api=$api title=$title"
+          [ "$home" = "200" ] && [ "$api" = "200" ] || { echo "::error::prod unhealthy after deploy"; exit 1; }
+          echo "Prod healthy. $title"
+
+      - name: Roll back on failure
+        if: failure()
+        env:
+          HOST: ${{ secrets.PROD_HOST }}
+          SSH_USER: ${{ secrets.PROD_USER }}
+        run: |
+          echo "::warning::deploy/health failed — rolling back web to previous image"
+          ssh -i ~/.ssh/deploy -o BatchMode=yes "${SSH_USER}@${HOST}" "rollback" || true
