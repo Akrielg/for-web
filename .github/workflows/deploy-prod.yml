@@ -53,11 +53,32 @@ jobs:
           [ "$home" = "200" ] && [ "$api" = "200" ] || { echo "::error::prod unhealthy after deploy"; exit 1; }
           echo "Prod healthy. $title"
 
+      - name: Announce in #ops
+        if: success()
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          OPS_CHANNEL_ID: ${{ secrets.OPS_CHANNEL_ID }}
+          TAG: ${{ inputs.image_tag }}
+        run: |
+          # skipped silently until BOT_TOKEN / OPS_CHANNEL_ID secrets exist
+          [ -n "$BOT_TOKEN" ] && [ -n "$OPS_CHANNEL_ID" ] || exit 0
+          curl -sf -X POST "https://chat.spiraliis.com/api/channels/${OPS_CHANNEL_ID}/messages" \
+            -H "x-bot-token: ${BOT_TOKEN}" -H "content-type: application/json" \
+            -d "{\"content\":\"🌀 Deployed spiraliis-web:${TAG} — healthy\"}" || true
+
       - name: Roll back on failure
         if: failure()
         env:
           HOST: ${{ secrets.PROD_HOST }}
           SSH_USER: ${{ secrets.PROD_USER }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          OPS_CHANNEL_ID: ${{ secrets.OPS_CHANNEL_ID }}
+          TAG: ${{ inputs.image_tag }}
         run: |
           echo "::warning::deploy/health failed — rolling back web to previous image"
           ssh -i ~/.ssh/deploy -o BatchMode=yes "${SSH_USER}@${HOST}" "rollback" || true
+          if [ -n "$BOT_TOKEN" ] && [ -n "$OPS_CHANNEL_ID" ]; then
+            curl -sf -X POST "https://chat.spiraliis.com/api/channels/${OPS_CHANNEL_ID}/messages" \
+              -H "x-bot-token: ${BOT_TOKEN}" -H "content-type: application/json" \
+              -d "{\"content\":\"⚠️ Deploy of spiraliis-web:${TAG} failed — rolled back to previous image\"}" || true
+          fi
