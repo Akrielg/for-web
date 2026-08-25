@@ -32,17 +32,17 @@ export function AgeGate(props: {
   const allowed = () =>
     state.layout.getSectionState(props.contentId + "-nsfw", false);
 
+  // Upstream fetches geo.revolt.chat here to decide whether the viewer's region
+  // requires blocking mature content. On a private instance that would send our
+  // users' IPs to a third party — and because the query used throwOnError, an
+  // outage there would block these channels entirely. Answer locally instead.
   const geoQuery = useQuery(() => ({
     queryKey: ["geoblock"],
-    queryFn: async (): Promise<GeoBlock> => {
-      const response = await fetch("https://geo.revolt.chat");
-      if (!response.ok) {
-        throw new Error("Failed to fetch geo data");
-      }
-      return response.json();
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    throwOnError: true,
+    queryFn: async (): Promise<GeoBlock> => ({
+      countryCode: "XX",
+      isAgeRestrictedGeo: false,
+    }),
+    staleTime: Infinity,
   }));
 
   return (
