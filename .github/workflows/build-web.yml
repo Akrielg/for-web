@@ -63,6 +63,7 @@ jobs:
           push: true
           build-args: |
             BASE_PATH=/
+            PWA_SCOPE=/
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
