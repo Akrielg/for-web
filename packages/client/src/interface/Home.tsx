@@ -202,15 +202,13 @@ export function HomePage() {
             </Show>
             <CategoryButton
               onClick={() =>
-                openModal({
-                  type: "settings",
-                  config: "user",
-                  context: { page: "feedback" },
-                })
+                navigate(
+                  "/server/01M0XNM6R95YRNQRDE8SDFD2S4/channel/01M0XP5D7D788GD1ETXHTNFJV2",
+                )
               }
               description={
                 <Trans>
-                  Let us know how we can improve our app by giving us feedback.
+                  Bugs, requests and complaints all welcome in #feedback.
                 </Trans>
               }
               icon={<MdRateReview {...iconSize(22)} />}
